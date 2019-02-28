@@ -32,10 +32,10 @@ class Drawing_Schema:
         self.e3_s = ('b-', 3)
         self.w_s = ('k-', 2)
         self.m_s = ('r-', 1)
-        self.bd_s = ('y', 1)
+        self.bd_s = ('g', 1)
         self.line_s = ('k-', 0.5)
 
-    def update_schemes(self,str_tag,data_schema):
+    def update_schema(self,str_tag,data_schema):
         if str_tag == 'e1':
             self.e1_s=data_schema
             return True

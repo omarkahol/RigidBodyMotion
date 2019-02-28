@@ -1,5 +1,5 @@
 import numpy as np
-from RigidBodyRotation.QuatPy import Quaternion
+from QuatPy import Quaternion
 from math import *
 
 class ReferenceFrame:
@@ -14,7 +14,7 @@ class ReferenceFrame:
             self.e3 = np.array([0, 0, 1])
             self.calculate_axes()
         else:
-            raise ValueError('Base vector must have length 3')
+            raise ValueError('length must be 3')
 
     def get_axes_array(self):
         return np.array([self.e1,self.e2,self.e3]).T
@@ -33,18 +33,30 @@ class ReferenceFrame:
         else:
             return False
 
+    def orient_new_euler(self,yaw,pitch,roll):
+        cy = cos(yaw * 0.5)
+        sy = sin(yaw * 0.5)
+        cp = cos(pitch * 0.5)
+        sp = sin(pitch * 0.5)
+        cr = cos(roll * 0.5)
+        sr = sin(roll * 0.5)
+        angle=cy * cp * cr + sy * sp * sr
+        vx=cy * cp * sr - sy * sp * cr
+        vy = sy * cp * sr + cy * sp * cr
+        vz=sy * cp * cr - cy * sp * sr
+        self.set_base_quaternion(angle,vx,vy,vz)
+
+    def to_euler(self):
+        q0=self.base_quaternion.s
+        q1,q2,q3=self.base_quaternion.v
+        yaw=atan2(2*(q0*q3+q1*q2),1-2*((q2**2)+(q3**2)))
+        pitch=asin(2*(q0*q2-q3*q1))
+        roll = atan2(2 * (q0 * q1 + q2 * q3), 1 - 2 * ((q2 ** 2) + (q1 ** 2)))
+        return [yaw,pitch,roll]
+
     def set_base_quaternion(self,b0,b1,b2,b3):
         self.base_quaternion=Quaternion(b0,[b1,b2,b3])
         self.calculate_axes()
-
-    def set_axes(self,e1,e2,e3):
-        if len(e1)==3 and len(e2)==3 and len(e3)==3:
-            self.e1=e1
-            self.e2=e2
-            self.e3=e3
-            return True
-        else:
-            return False
 
     def move_with_origin(self,vec):
         if len(vec)==3:

@@ -1,5 +1,5 @@
 import numpy as np
-from RigidBodyRotation.ReferenceFrame import ReferenceFrame
+from ReferenceFrame import ReferenceFrame
 class Force:
     def __init__(self, origin, ref_frame=ReferenceFrame([0,0,0],name="force_frame"), name="undefined", expr=lambda x,y,z,t: np.array([0,0,0]), fixed_origin=False):
 

@@ -1,8 +1,8 @@
 import numpy as np
 from time import time
-from RigidBodyRotation.DrawingSchema import Drawing_Schema
-from RigidBodyRotation.QuatPy import *
-from RigidBodyRotation.ReferenceFrame import *
+from DrawingSchema import Drawing_Schema
+from QuatPy import *
+from ReferenceFrame import *
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
@@ -76,6 +76,18 @@ class Object:
         else:
             return False
 
+    def fix_new_origin(self,xs,ys,zs):
+        if len(xs)==len(ys) and len(ys)==len(zs):
+            l=len(xs)
+            new_or=np.array([0,0,0],dtype=float)
+            for px,py,pz in zip(xs,ys,zs):
+                new_or = np.add(new_or,self.N.base_quaternion.rotate([px,py,pz]))
+            self.N.origin = np.add(self.N.origin,new_or/l)
+            return True
+        else:
+            return False
+
+
     def __compute_forces_torques__(self, state):
         F=np.array([0,0,0],dtype=float)
         T=np.array([0,0,0],dtype=float)
@@ -95,7 +107,8 @@ class Object:
     def dtstate(self,state,t):
         F, T = self.__compute_forces_torques__(state)
         dvx,dvy,dvz = F/self.mass
-        w1,w2,w3=state[10:13]
+
+        w1,w2,w3=state[10:]
         b0,b1,b2,b3=state[6:10]
         vx,vy,vz=state[3:6]
 
@@ -112,7 +125,8 @@ class Object:
         return np.vstack([a*np.hstack(np.sin(u)*np.cos(v)),b*np.hstack(np.sin(u)*np.sin(v)),c*np.hstack(np.cos(u))])
 
     def Mo(self):
-        return self.N.move_with_origin(self.N.to_base_frame(self.Io.dot(self.__state__[10:13])))
+        return self.N.move_with_origin(np.cross(self.N.origin,self.mass*np.array(self.__state__[3:6])))+\
+               self.N.move_with_origin(self.N.to_base_frame(self.Io.dot(self.__state__[10:13])))
 
     def step(self,dt):
         self.__state__=odeint(self.dtstate,self.__state__,[0,dt])[-1]
@@ -121,6 +135,7 @@ class Object:
         self.N.set_base_quaternion(b0,b1,b2,b3)
         self.omega = self.N.to_base_frame([w1,w2,w3])
         self.__object_time__ += dt
+
 
     def solve_model(self,t):
         self.__compute_state__()
@@ -134,6 +149,7 @@ class Object:
         print('extracting values...')
         for state in solution:
             Nx, Ny, Nz, vx, vy, vz, b0, b1, b2, b3, w1, w2, w3 = state
+
             origins.append([Nx, Ny, Nz])
             quaternions.append(Quaternion(b0, [b1, b2, b3]))
             omegas.append([w1, w2, w3])
@@ -161,19 +177,28 @@ class Object:
         ani = FuncAnimation(fig, animate, frames=300, interval=inte, blit=blit)
         plt.show(ani)
 
-    def integrate_and_draw(self,t,drawing_schema=Drawing_Schema(),n1=20,n2=20, custom_obj=None, blit=True):
+    def integrate_and_draw(self,t,drawing_schema=Drawing_Schema(),n1=20,n2=20, custom_obj=None, blit=True, interval=None, draw_before=None):
         self.solve_model(t)
         origins, quaternions, omegas = self.solution
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d',xlim=drawing_schema.lim,ylim=drawing_schema.lim,zlim=drawing_schema.lim)
-        canvas = drawing_schema.__set_canvas__(ax)
+        if draw_before is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d', xlim=drawing_schema.lim, ylim=drawing_schema.lim,
+                                 zlim=drawing_schema.lim)
+            canvas = drawing_schema.__set_canvas__(ax)
+        else:
+            canvas= drawing_schema.__set_canvas__(draw_before[1])
+            fig=draw_before[0]
         ell=self.ellipsoid(n1,n2) if custom_obj is None else custom_obj
 
         def animate(i):
-            e1, e2, e3, w, M, line, bd = drawing_schema.__update_canvas__(canvas, self, ell,state=[origins[i],quaternions[i],omegas[i]])
+            e1, e2, e3, w, M, line, bd = drawing_schema.__update_canvas__(canvas, self, ell,state=[origins[i],
+                quaternions[i],omegas[i]])
             return e1, e2, e3, w, line, M, bd
 
-        ani = FuncAnimation(fig, animate, frames=len(t), interval=1000 * t.max() / len(t), blit=blit)
+        if interval is None:
+            ani = FuncAnimation(fig, animate, frames=len(t), interval=1000 * t.max() / len(t), blit=blit)
+        else:
+            ani = FuncAnimation(fig, animate, frames=len(t), interval=interval / len(t), blit=blit)
         plt.show(ani)
 
     def save(self, dirname):
@@ -193,15 +218,10 @@ class Object:
             csvfile.writerows(self.solution)
         return True
 
-
-
-
-
-
-
-
     def load(self):
         print('TODO LATER')
+
+
 
 
 
